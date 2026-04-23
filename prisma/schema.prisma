@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Um alvo de monitoramento: pode ser uma URL da biblioteca de anúncios
+// (ex: filtro por palavra-chave) ou uma página específica (via pageId/URL).
+model Target {
+  id         String   @id @default(cuid())
+  name       String   // apelido do alvo (ex: "Concorrente X")
+  inputType  String   // "library_url" | "page_url"
+  inputValue String   // URL colada pelo usuário
+  pageId     String?  // extraído do resultado da primeira scrape
+  pageName   String?
+  country    String   @default("BR")
+  isPaused   Boolean  @default(false)
+  lastRunAt  DateTime?
+  lastError  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  snapshots Snapshot[]
+  ads       Ad[]
+
+  @@index([createdAt])
+}
+
+// Snapshot agregado gerado a cada scrape: quantos anúncios estavam ativos
+// naquele momento. É o que alimenta o gráfico temporal.
+model Snapshot {
+  id          String   @id @default(cuid())
+  targetId    String
+  target      Target   @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  activeCount Int      // quantos anúncios ativos
+  totalCount  Int      // total retornado (ativos + recentemente inativos)
+  capturedAt  DateTime @default(now())
+
+  @@index([targetId, capturedAt])
+}
+
+// Cache persistente de cada anúncio individual retornado pelo scraper.
+// firstSeenAt + isActive calculam tempo ativo; lastSeenAt detecta queda.
+model Ad {
+  id             String    @id @default(cuid())
+  targetId       String
+  target         Target    @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  archiveId      String    // ID do anúncio na Ad Library (único por alvo)
+  adId           String?
+  pageName       String?
+  snapshotUrl    String?   // preview do criativo
+  bodyText       String?   @db.Text
+  mediaType      String?   // "image" | "video" | "carousel"
+  ctaText        String?
+  linkUrl        String?
+  startDate      DateTime?
+  endDate        DateTime?
+  isActive       Boolean   @default(true)
+  // collation_* é o agrupamento nativo do Meta: "N anúncios usam esse criativo"
+  collationId    String?
+  collationCount Int       @default(1)
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  becameInactiveAt DateTime?
+
+  @@unique([targetId, archiveId])
+  @@index([targetId, isActive])
+  @@index([targetId, collationId])
+}

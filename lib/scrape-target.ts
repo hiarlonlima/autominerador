@@ -1,0 +1,117 @@
+import { prisma } from "./prisma";
+import { normalizeAd, runScraper } from "./apify";
+import type { Target } from "@prisma/client";
+
+export async function scrapeTarget(target: Target) {
+  const now = new Date();
+  try {
+    const items = await runScraper({
+      urls: [{ url: target.inputValue }],
+      scrapeAdDetails: true,
+      count: 500,
+    });
+
+    // actor às vezes retorna um único item com { error: "..." } em vez de
+    // falhar o run. Trata isso como erro real.
+    if (items.length === 1 && "error" in (items[0] as object) && (items[0] as { error?: string }).error) {
+      throw new Error((items[0] as { error: string }).error);
+    }
+
+    const normalized = items
+      .map(normalizeAd)
+      .filter((x): x is NonNullable<ReturnType<typeof normalizeAd>> => x !== null);
+
+    const activeCount = normalized.filter((a) => a.isActive).length;
+    const totalCount = normalized.length;
+
+    const pageIdFromItems = normalized.find((a) => a.pageId)?.pageId ?? null;
+    const pageNameFromItems = normalized.find((a) => a.pageName)?.pageName ?? null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.snapshot.create({
+        data: {
+          targetId: target.id,
+          activeCount,
+          totalCount,
+          capturedAt: now,
+        },
+      });
+
+      for (const ad of normalized) {
+        await tx.ad.upsert({
+          where: {
+            targetId_archiveId: {
+              targetId: target.id,
+              archiveId: ad.archiveId,
+            },
+          },
+          create: {
+            targetId: target.id,
+            archiveId: ad.archiveId,
+            adId: ad.adId,
+            pageName: ad.pageName,
+            snapshotUrl: ad.snapshotUrl,
+            bodyText: ad.bodyText,
+            mediaType: ad.mediaType,
+            ctaText: ad.ctaText,
+            linkUrl: ad.linkUrl,
+            startDate: ad.startDate,
+            endDate: ad.endDate,
+            isActive: ad.isActive,
+            collationId: ad.collationId,
+            collationCount: ad.collationCount,
+            firstSeenAt: now,
+            lastSeenAt: now,
+            becameInactiveAt: ad.isActive ? null : now,
+          },
+          update: {
+            snapshotUrl: ad.snapshotUrl,
+            bodyText: ad.bodyText,
+            mediaType: ad.mediaType,
+            ctaText: ad.ctaText,
+            linkUrl: ad.linkUrl,
+            endDate: ad.endDate,
+            isActive: ad.isActive,
+            collationId: ad.collationId,
+            collationCount: ad.collationCount,
+            lastSeenAt: now,
+            // marca quando virou inativo
+            ...(ad.isActive ? { becameInactiveAt: null } : {}),
+          },
+        });
+      }
+
+      // anúncios que tínhamos e não voltaram a aparecer → inativos
+      await tx.ad.updateMany({
+        where: {
+          targetId: target.id,
+          isActive: true,
+          lastSeenAt: { lt: now },
+        },
+        data: {
+          isActive: false,
+          becameInactiveAt: now,
+        },
+      });
+
+      await tx.target.update({
+        where: { id: target.id },
+        data: {
+          lastRunAt: now,
+          lastError: null,
+          pageId: target.pageId ?? pageIdFromItems,
+          pageName: target.pageName ?? pageNameFromItems,
+        },
+      });
+    });
+
+    return { ok: true, activeCount, totalCount };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "erro desconhecido";
+    await prisma.target.update({
+      where: { id: target.id },
+      data: { lastRunAt: now, lastError: message },
+    });
+    return { ok: false, error: message };
+  }
+}
