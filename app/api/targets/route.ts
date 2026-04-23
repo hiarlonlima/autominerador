@@ -4,8 +4,8 @@ import { createTargetSchema, parseTargetInput } from "@/lib/ad-library";
 import { scrapeTarget } from "@/lib/scrape-target";
 
 export const dynamic = "force-dynamic";
-// scrape pode demorar alguns minutos
-export const maxDuration = 300;
+// Plano Hobby do Vercel tem limite de 60s.
+export const maxDuration = 60;
 
 export async function GET() {
   const targets = await prisma.target.findMany({

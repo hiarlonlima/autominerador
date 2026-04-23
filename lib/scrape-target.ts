@@ -8,7 +8,8 @@ export async function scrapeTarget(target: Target) {
     const items = await runScraper({
       urls: [{ url: target.inputValue }],
       scrapeAdDetails: true,
-      count: 500,
+      // 200 costuma caber em <60s do Hobby e cobre a maior parte dos alvos reais
+      count: 200,
     });
 
     // actor às vezes retorna um único item com { error: "..." } em vez de

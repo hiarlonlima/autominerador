@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { scrapeTarget } from "@/lib/scrape-target";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // até 5min (plano hobby do Vercel dá 60s; ajuste conforme plano)
+export const maxDuration = 60;
 
 export async function POST(
   _req: Request,
