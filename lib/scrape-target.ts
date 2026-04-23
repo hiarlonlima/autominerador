@@ -28,18 +28,11 @@ export async function scrapeTarget(target: Target) {
     const pageIdFromItems = normalized.find((a) => a.pageId)?.pageId ?? null;
     const pageNameFromItems = normalized.find((a) => a.pageName)?.pageName ?? null;
 
-    await prisma.$transaction(async (tx) => {
-      await tx.snapshot.create({
-        data: {
-          targetId: target.id,
-          activeCount,
-          totalCount,
-          capturedAt: now,
-        },
-      });
-
-      for (const ad of normalized) {
-        await tx.ad.upsert({
+    // Upserts em paralelo FORA de transação — cada linha é atômica per-row,
+    // e assim a operação inteira cabe no maxDuration de 60 s do Hobby.
+    await Promise.all(
+      normalized.map((ad) =>
+        prisma.ad.upsert({
           where: {
             targetId_archiveId: {
               targetId: target.id,
@@ -76,14 +69,24 @@ export async function scrapeTarget(target: Target) {
             collationId: ad.collationId,
             collationCount: ad.collationCount,
             lastSeenAt: now,
-            // marca quando virou inativo
             ...(ad.isActive ? { becameInactiveAt: null } : {}),
           },
-        });
-      }
+        }),
+      ),
+    );
 
-      // anúncios que tínhamos e não voltaram a aparecer → inativos
-      await tx.ad.updateMany({
+    // Snapshot + marcação de inativos + atualização do target dentro de uma
+    // transação curta (são 3 queries rápidas).
+    await prisma.$transaction([
+      prisma.snapshot.create({
+        data: {
+          targetId: target.id,
+          activeCount,
+          totalCount,
+          capturedAt: now,
+        },
+      }),
+      prisma.ad.updateMany({
         where: {
           targetId: target.id,
           isActive: true,
@@ -93,9 +96,8 @@ export async function scrapeTarget(target: Target) {
           isActive: false,
           becameInactiveAt: now,
         },
-      });
-
-      await tx.target.update({
+      }),
+      prisma.target.update({
         where: { id: target.id },
         data: {
           lastRunAt: now,
@@ -103,8 +105,8 @@ export async function scrapeTarget(target: Target) {
           pageId: target.pageId ?? pageIdFromItems,
           pageName: target.pageName ?? pageNameFromItems,
         },
-      });
-    });
+      }),
+    ]);
 
     return { ok: true, activeCount, totalCount };
   } catch (err) {
