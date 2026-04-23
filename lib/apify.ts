@@ -1,4 +1,6 @@
-import { ApifyClient } from "apify-client";
+// Cliente enxuto pra Apify usando fetch nativo — evita as deps transitivas
+// do `apify-client` (proxy-agent, pac-proxy-agent, etc) que quebram o tracing
+// do Vercel em runtime serverless.
 
 // Tipagem do item retornado pelo actor curious_coder/facebook-ads-library-scraper.
 // O scraper expõe vários campos; mantemos apenas os que usamos.
@@ -31,12 +33,6 @@ export interface ScrapedAd {
   pageName?: string;
 }
 
-function getClient() {
-  const token = process.env.APIFY_TOKEN;
-  if (!token) throw new Error("APIFY_TOKEN não configurado");
-  return new ApifyClient({ token });
-}
-
 export interface RunInput {
   urls: Array<{ url: string }>;
   scrapeAdDetails?: boolean;
@@ -44,19 +40,37 @@ export interface RunInput {
 }
 
 export async function runScraper(input: RunInput): Promise<ScrapedAd[]> {
-  const client = getClient();
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN não configurado");
+
   const actorId =
     process.env.APIFY_ACTOR_ID ?? "curious_coder~facebook-ads-library-scraper";
 
-  const run = await client.actor(actorId).call(input, {
-    // timeout de 10min (coleta pode ser pesada)
-    timeout: 600,
-    // 512MB por URL é o mínimo exigido pelo actor
-    memory: 512 * Math.max(1, input.urls.length),
+  // run-sync-get-dataset-items: executa o actor e já retorna os items em uma chamada.
+  const url = new URL(
+    `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items`,
+  );
+  // 512 MB por URL é o mínimo que o actor exige.
+  url.searchParams.set("memory", String(512 * Math.max(1, input.urls.length)));
+  // limita o actor a 55 s — damos folga pro fetch responder antes do maxDuration de 60 s.
+  url.searchParams.set("timeout", "55");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
   });
 
-  const { items } = await client.dataset(run.defaultDatasetId).listItems();
-  return items as unknown as ScrapedAd[];
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Apify API ${res.status}: ${text.slice(0, 300)}`);
+  }
+
+  const items = (await res.json()) as ScrapedAd[];
+  return items;
 }
 
 // Normaliza o retorno do scraper, lidando com variações de nome de campo.
