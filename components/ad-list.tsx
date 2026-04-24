@@ -41,24 +41,46 @@ export function AdList({ ads }: { ads: AdListItem[] }) {
   );
 }
 
-// Só retorna URL quando temos mídia em alta resolução (vídeo HD/SD ou imagem
-// original). O `snapshotUrl` é só um thumbnail — se cairmos nele, o botão some
-// e o usuário sabe que precisa rodar um scrape pra pegar o HD.
-export function adDownloadUrl(ad: {
+// Retorna a melhor qualidade disponível. Prioridade: HD > SD > imagem original > preview.
+export function adDownloadInfo(ad: {
   archiveId: string;
   videoHdUrl?: string | null;
   videoSdUrl?: string | null;
   originalImageUrl?: string | null;
-}): string | null {
-  const src = ad.videoHdUrl ?? ad.videoSdUrl ?? ad.originalImageUrl ?? null;
+  snapshotUrl?: string | null;
+}): { url: string; label: string; quality: "hd" | "sd" | "image" | "preview" } | null {
+  let src: string | null = null;
+  let label = "";
+  let quality: "hd" | "sd" | "image" | "preview" = "preview";
+  if (ad.videoHdUrl) {
+    src = ad.videoHdUrl;
+    label = "Baixar HD";
+    quality = "hd";
+  } else if (ad.videoSdUrl) {
+    src = ad.videoSdUrl;
+    label = "Baixar SD";
+    quality = "sd";
+  } else if (ad.originalImageUrl) {
+    src = ad.originalImageUrl;
+    label = "Baixar imagem";
+    quality = "image";
+  } else if (ad.snapshotUrl) {
+    src = ad.snapshotUrl;
+    label = "Baixar preview";
+    quality = "preview";
+  }
   if (!src) return null;
-  return `/api/download?url=${encodeURIComponent(src)}&filename=ad_${ad.archiveId}`;
+  return {
+    url: `/api/download?url=${encodeURIComponent(src)}&filename=ad_${ad.archiveId}`,
+    label,
+    quality,
+  };
 }
 
 function AdCard({ ad }: { ad: AdListItem }) {
   const adUrl = `https://www.facebook.com/ads/library/?id=${ad.archiveId}`;
   const startedAt = ad.startDate ?? ad.firstSeenAt;
-  const downloadHref = adDownloadUrl(ad);
+  const download = adDownloadInfo(ad);
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card/50 transition-colors hover:border-border/90">
@@ -121,22 +143,15 @@ function AdCard({ ad }: { ad: AdListItem }) {
             </span>
           )}
         </div>
-        {downloadHref ? (
+        {download && (
           <a
-            href={downloadHref}
+            href={download.url}
             className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:border-primary/40 hover:text-primary"
-            title="Baixar em HD"
+            title={download.label}
           >
             <Download className="h-3 w-3" />
-            Baixar HD
+            {download.label}
           </a>
-        ) : (
-          <div
-            className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 px-2 py-1.5 text-[10px] text-muted-foreground"
-            title="Roda um scrape no alvo pra pegar a URL em HD"
-          >
-            HD não disponível — rode um scrape
-          </div>
         )}
       </div>
     </div>

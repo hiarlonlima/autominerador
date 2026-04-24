@@ -13,7 +13,7 @@ type WinnerCreative = {
   snapshotUrl: string | null;
   libraryUrl: string;
   downloadUrl: string | null;
-  hasHd: boolean;
+  downloadLabel: string | null;
 };
 
 export type CompareResult = {
@@ -144,10 +144,10 @@ function WinnerCreativeCard({ creative }: { creative: WinnerCreative }) {
             <a
               href={creative.downloadUrl}
               className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-primary px-2 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              title={creative.hasHd ? "Baixar HD" : "Baixar preview"}
+              title={creative.downloadLabel ?? "Baixar"}
             >
               <Download className="h-3 w-3" />
-              {creative.hasHd ? "Baixar HD" : "Baixar"}
+              {creative.downloadLabel ?? "Baixar"}
             </a>
           )}
           <a

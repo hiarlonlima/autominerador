@@ -3,7 +3,7 @@
 import { Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDays } from "@/lib/utils";
-import { adDownloadUrl, type AdListItem } from "./ad-list";
+import { adDownloadInfo, type AdListItem } from "./ad-list";
 
 type Group = {
   ads: AdListItem[];
@@ -96,16 +96,16 @@ function GroupCard({ group }: { group: Group }) {
             Escalado há {formatRelativeDays(oldest ? new Date(oldest) : null)}
           </span>
           <div className="flex items-center gap-3">
-            {adDownloadUrl(sample) && (
-              <a
-                href={adDownloadUrl(sample)!}
-                className="inline-flex items-center gap-1 hover:text-primary"
-                title={sample.videoHdUrl || sample.originalImageUrl ? "Baixar HD" : "Baixar preview"}
-              >
-                <Download className="h-3 w-3" />
-                Baixar
-              </a>
-            )}
+            {(() => {
+              const dl = adDownloadInfo(sample);
+              if (!dl) return null;
+              return (
+                <a href={dl.url} className="inline-flex items-center gap-1 hover:text-primary" title={dl.label}>
+                  <Download className="h-3 w-3" />
+                  {dl.label}
+                </a>
+              );
+            })()}
             <a
               href={`https://www.facebook.com/ads/library/?id=${sample.archiveId}`}
               target="_blank"

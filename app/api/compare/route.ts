@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       .map((id) => {
         const creative = winnerTarget.topCreatives.find((c) => c.archiveId === id);
         if (!creative) return null;
+        const download = buildDownload(creative);
         return {
           archiveId: creative.archiveId,
           mediaType: creative.mediaType,
@@ -40,8 +41,8 @@ export async function POST(req: Request) {
           duplicates: creative.duplicates,
           snapshotUrl: creative.snapshotUrl,
           libraryUrl: `https://www.facebook.com/ads/library/?id=${creative.archiveId}`,
-          downloadUrl: buildDownloadUrl(creative),
-          hasHd: Boolean(creative.videoHdUrl ?? creative.originalImageUrl),
+          downloadUrl: download?.url ?? null,
+          downloadLabel: download?.label ?? null,
         };
       })
       .filter(Boolean);
@@ -67,14 +68,24 @@ export async function POST(req: Request) {
   }
 }
 
-function buildDownloadUrl(c: {
+function buildDownload(c: {
   archiveId: string;
   videoHdUrl: string | null;
   videoSdUrl: string | null;
   originalImageUrl: string | null;
   snapshotUrl: string | null;
-}): string | null {
-  const src = c.videoHdUrl ?? c.videoSdUrl ?? c.originalImageUrl ?? c.snapshotUrl;
-  if (!src) return null;
-  return `/api/download?url=${encodeURIComponent(src)}&filename=ad_${c.archiveId}`;
+}): { url: string; label: string } | null {
+  if (c.videoHdUrl)
+    return { url: proxy(c.videoHdUrl, c.archiveId), label: "Baixar HD" };
+  if (c.videoSdUrl)
+    return { url: proxy(c.videoSdUrl, c.archiveId), label: "Baixar SD" };
+  if (c.originalImageUrl)
+    return { url: proxy(c.originalImageUrl, c.archiveId), label: "Baixar imagem" };
+  if (c.snapshotUrl)
+    return { url: proxy(c.snapshotUrl, c.archiveId), label: "Baixar preview" };
+  return null;
+}
+
+function proxy(url: string, archiveId: string) {
+  return `/api/download?url=${encodeURIComponent(url)}&filename=ad_${archiveId}`;
 }
