@@ -35,6 +35,13 @@ export default async function DashboardPage({ searchParams }: Props) {
             select: { id: true, activeCount: true, capturedAt: true },
           },
           _count: { select: { ads: true } },
+          // anúncio ativo mais antigo: base pra "ativo há X" no card
+          ads: {
+            where: { isActive: true },
+            orderBy: [{ startDate: "asc" }, { firstSeenAt: "asc" }],
+            take: 1,
+            select: { startDate: true, firstSeenAt: true },
+          },
         },
       }),
       prisma.ad.count({ where: { isActive: true } }),
@@ -67,7 +74,7 @@ export default async function DashboardPage({ searchParams }: Props) {
               Acompanhe anúncios de concorrentes com coleta automática a cada 6 h.
             </p>
           </div>
-          <AddTargetDialog />
+          <AddTargetDialog folders={folders} />
         </div>
 
         <div className="mb-8 grid gap-3 sm:grid-cols-3">
@@ -109,30 +116,37 @@ export default async function DashboardPage({ searchParams }: Props) {
         />
 
         {targetsRaw.length === 0 ? (
-          <EmptyState hasFilter={Boolean(folderFilter)} />
+          <EmptyState hasFilter={Boolean(folderFilter)} folders={folders} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {targetsRaw.map((t) => (
-              <TargetCard
-                key={t.id}
-                folders={folders}
-                target={{
-                  id: t.id,
-                  name: t.name,
-                  inputType: t.inputType,
-                  pageName: t.pageName,
-                  folderId: t.folderId,
-                  isPaused: t.isPaused,
-                  lastError: t.lastError,
-                  lastRunAt: t.lastRunAt ? t.lastRunAt.toISOString() : null,
-                  _count: t._count,
-                  snapshots: t.snapshots.map((s) => ({
-                    ...s,
-                    capturedAt: s.capturedAt.toISOString(),
-                  })),
-                }}
-              />
-            ))}
+            {targetsRaw.map((t) => {
+              const oldest = t.ads[0];
+              const oldestAt = oldest
+                ? (oldest.startDate ?? oldest.firstSeenAt)
+                : null;
+              return (
+                <TargetCard
+                  key={t.id}
+                  folders={folders}
+                  target={{
+                    id: t.id,
+                    name: t.name,
+                    inputType: t.inputType,
+                    pageName: t.pageName,
+                    folderId: t.folderId,
+                    isPaused: t.isPaused,
+                    lastError: t.lastError,
+                    lastRunAt: t.lastRunAt ? t.lastRunAt.toISOString() : null,
+                    _count: t._count,
+                    snapshots: t.snapshots.map((s) => ({
+                      ...s,
+                      capturedAt: s.capturedAt.toISOString(),
+                    })),
+                    oldestActiveAt: oldestAt ? new Date(oldestAt).toISOString() : null,
+                  }}
+                />
+              );
+            })}
           </div>
         )}
       </main>
@@ -140,7 +154,13 @@ export default async function DashboardPage({ searchParams }: Props) {
   );
 }
 
-function EmptyState({ hasFilter }: { hasFilter: boolean }) {
+function EmptyState({
+  hasFilter,
+  folders,
+}: {
+  hasFilter: boolean;
+  folders: FolderItem[];
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/30 px-6 py-20 text-center">
       <div className="relative mb-2">
@@ -158,7 +178,7 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }) {
           : "Adicione uma URL da Biblioteca de Anúncios do Meta ou de uma página do Facebook pra começar a monitorar."}
       </p>
       <div className="mt-2">
-        <AddTargetDialog />
+        <AddTargetDialog folders={folders} />
       </div>
     </div>
   );

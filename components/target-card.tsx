@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowRight,
+  Clock,
   FolderInput,
   Inbox,
   Loader2,
@@ -56,6 +57,8 @@ export type TargetCardData = {
   isPaused: boolean;
   snapshots: Snapshot[];
   _count: { ads: number };
+  // data do anúncio ativo mais antigo nesse alvo — usado pra "ativo há X"
+  oldestActiveAt: string | null;
 };
 
 export function TargetCard({
@@ -220,14 +223,20 @@ export function TargetCard({
               </span>
               <span className="text-xs text-muted-foreground">anúncios ativos</span>
             </div>
-            {hasRun && (
-              <div className="mt-1 flex items-center gap-1.5 text-xs">
-                <DeltaPill delta={delta} />
-                <span className="text-muted-foreground">
-                  vs. última coleta
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              {hasRun && (
+                <>
+                  <DeltaPill delta={delta} />
+                  <span className="text-muted-foreground">vs. última coleta</span>
+                </>
+              )}
+              {target.oldestActiveAt && (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Ativo há {formatRelativeDays(target.oldestActiveAt)}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <div className="w-28">
             <MiniSparkline data={sorted.map((s) => ({ value: s.activeCount }))} />

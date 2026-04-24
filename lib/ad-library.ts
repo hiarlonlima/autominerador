@@ -60,6 +60,7 @@ export function parseTargetInput(raw: string): TargetInput {
 export const createTargetSchema = z.object({
   name: z.string().min(1, "Informe um apelido").max(80),
   input: z.string().min(1, "Cole a URL ou ID"),
+  folderId: z.string().nullable().optional(),
 });
 
 // O actor do Apify retorna 0 resultados quando a URL tem country=ALL.

@@ -45,6 +45,7 @@ export async function POST(req: Request) {
             : input.url,
         pageId: "pageId" in input ? input.pageId ?? null : null,
         country,
+        folderId: parsed.data.folderId ?? null,
       },
     });
 
