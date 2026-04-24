@@ -63,10 +63,11 @@ export const createTargetSchema = z.object({
   folderId: z.string().nullable().optional(),
 });
 
-// O actor do Apify retorna 0 resultados quando a URL tem country=ALL.
-// Força um país específico (default BR) e limpa parâmetros que só atrapalham.
+// O actor do Apify retorna 0 resultados silenciosamente quando a URL tem
+// combinações problemáticas (country=ALL, id de anúncio específico junto
+// com view_all_page_id, sort_data, search_type...). Reduz a URL pra forma
+// mínima que o actor digere bem.
 export function normalizeLibraryUrl(raw: string, fallbackCountry = "BR"): string {
-  // o fallback também pode vir como "ALL" (targets antigos) — aí reseta pra BR
   const safeFallback =
     !fallbackCountry || fallbackCountry.toUpperCase() === "ALL"
       ? "BR"
@@ -75,15 +76,40 @@ export function normalizeLibraryUrl(raw: string, fallbackCountry = "BR"): string
     const url = new URL(raw);
     if (!LIBRARY_HOSTS.includes(url.hostname)) return raw;
 
-    const country = url.searchParams.get("country");
-    if (!country || country.toUpperCase() === "ALL") {
-      url.searchParams.set("country", safeFallback);
+    const sp = url.searchParams;
+    const viewAllPageId = sp.get("view_all_page_id");
+    const q = sp.get("q");
+    const adType = sp.get("ad_type") ?? "all";
+    const mediaType = sp.get("media_type") ?? "all";
+    const activeStatus = sp.get("active_status") ?? "active";
+    let country = sp.get("country") ?? safeFallback;
+    if (country.toUpperCase() === "ALL") country = safeFallback;
+
+    // reconstrói a querystring só com o essencial.
+    const clean = new URLSearchParams();
+    clean.set("active_status", activeStatus);
+    clean.set("ad_type", adType);
+    clean.set("country", country);
+    clean.set("media_type", mediaType);
+
+    if (viewAllPageId) {
+      // scraping de página específica: remove id de ad individual, search_type e sort_data
+      clean.set("view_all_page_id", viewAllPageId);
+    } else if (q) {
+      // busca por palavra-chave
+      clean.set("q", q);
+      clean.set("search_type", "keyword_unordered");
+    } else {
+      // URL sem view_all_page_id nem q — preserva o resto
+      sp.forEach((v, k) => {
+        if (!clean.has(k)) clean.set(k, v);
+      });
+      // mas remove flags problemáticas
+      clean.delete("is_targeted_country");
+      clean.delete("id");
     }
 
-    // flag interna que desliga a vinculação ao país; sem isso o actor
-    // se confunde em URLs com view_all_page_id.
-    url.searchParams.delete("is_targeted_country");
-
+    url.search = clean.toString();
     return url.toString();
   } catch {
     return raw;

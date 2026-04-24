@@ -4,21 +4,26 @@ import { normalizeLibraryUrl } from "../lib/ad-library";
 const prisma = new PrismaClient();
 
 async function main() {
-  const bad = await prisma.target.findMany({
-    where: {
-      OR: [{ country: "ALL" }, { inputValue: { contains: "country=ALL" } }],
-    },
+  const targets = await prisma.target.findMany({
+    where: { inputType: "library_url" },
   });
-  console.log(`${bad.length} alvos com country=ALL pra corrigir`);
-  for (const t of bad) {
-    const newUrl =
-      t.inputType === "library_url" ? normalizeLibraryUrl(t.inputValue, "BR") : t.inputValue;
-    await prisma.target.update({
-      where: { id: t.id },
-      data: { country: "BR", inputValue: newUrl, lastError: null },
-    });
-    console.log(`  ✔ ${t.name}`);
+  console.log(`Verificando ${targets.length} alvos (library_url)...`);
+  let fixed = 0;
+  for (const t of targets) {
+    const country = t.country === "ALL" ? "BR" : t.country;
+    const newUrl = normalizeLibraryUrl(t.inputValue, country || "BR");
+    if (newUrl !== t.inputValue || t.country !== country) {
+      await prisma.target.update({
+        where: { id: t.id },
+        data: { country, inputValue: newUrl, lastError: null },
+      });
+      console.log(`  ✔ ${t.name}`);
+      console.log(`    ${t.inputValue}`);
+      console.log(`    → ${newUrl}`);
+      fixed++;
+    }
   }
+  console.log(`${fixed} alvos atualizados.`);
 }
 
 main().finally(() => prisma.$disconnect());
