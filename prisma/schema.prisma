@@ -7,6 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Pasta pra organizar os alvos (ex: "Concorrentes BR", "Nichos de teste").
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  color     String?  // cor em hex pra identificação visual
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  targets Target[]
+
+  @@index([createdAt])
+}
+
 // Um alvo de monitoramento: pode ser uma URL da biblioteca de anúncios
 // (ex: filtro por palavra-chave) ou uma página específica (via pageId/URL).
 model Target {
@@ -20,6 +33,8 @@ model Target {
   isPaused   Boolean  @default(false)
   lastRunAt  DateTime?
   lastError  String?
+  folderId   String?
+  folder     Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -27,6 +42,7 @@ model Target {
   ads       Ad[]
 
   @@index([createdAt])
+  @@index([folderId])
 }
 
 // Snapshot agregado gerado a cada scrape: quantos anúncios estavam ativos

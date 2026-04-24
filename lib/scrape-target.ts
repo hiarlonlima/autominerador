@@ -1,12 +1,16 @@
 import { prisma } from "./prisma";
 import { normalizeAd, runScraper } from "./apify";
+import { normalizeLibraryUrl } from "./ad-library";
 import type { Target } from "@prisma/client";
 
 export async function scrapeTarget(target: Target) {
   const now = new Date();
   try {
+    // normaliza country=ALL e outros parâmetros problemáticos antes de scrapear
+    const url = normalizeLibraryUrl(target.inputValue, target.country || "BR");
+
     const items = await runScraper({
-      urls: [{ url: target.inputValue }],
+      urls: [{ url }],
       scrapeAdDetails: true,
       // 200 costuma caber em <60s do Hobby e cobre a maior parte dos alvos reais
       count: 200,

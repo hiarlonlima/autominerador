@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createTargetSchema, parseTargetInput } from "@/lib/ad-library";
+import { createTargetSchema, normalizeLibraryUrl, parseTargetInput } from "@/lib/ad-library";
 import { scrapeTarget } from "@/lib/scrape-target";
 
 export const dynamic = "force-dynamic";
@@ -33,13 +33,18 @@ export async function POST(req: Request) {
 
   try {
     const input = parseTargetInput(parsed.data.input);
+    const country = input.country === "ALL" ? "BR" : input.country;
     const target = await prisma.target.create({
       data: {
         name: parsed.data.name,
         inputType: input.type,
-        inputValue: input.url,
+        // salva a URL já normalizada (country fixo, sem flags problemáticas)
+        inputValue:
+          input.type === "library_url"
+            ? normalizeLibraryUrl(input.url, country)
+            : input.url,
         pageId: "pageId" in input ? input.pageId ?? null : null,
-        country: input.country,
+        country,
       },
     });
 

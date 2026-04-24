@@ -4,25 +4,55 @@ import { SiteHeader } from "@/components/site-header";
 import { AddTargetDialog } from "@/components/add-target-dialog";
 import { TargetCard } from "@/components/target-card";
 import { StatTile } from "@/components/stat-tile";
+import { FolderBar, type FolderItem } from "@/components/folder-bar";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
-  const [targets, totalActive, totalAds] = await Promise.all([
-    prisma.target.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        snapshots: {
-          orderBy: { capturedAt: "desc" },
-          take: 30,
-          select: { id: true, activeCount: true, capturedAt: true },
+type Props = {
+  searchParams: Promise<{ folder?: string }>;
+};
+
+export default async function DashboardPage({ searchParams }: Props) {
+  const { folder } = await searchParams;
+  const folderFilter = folder ?? null; // "none" | "<folderId>" | null (todas)
+
+  const targetWhere =
+    folderFilter === "none"
+      ? { folderId: null }
+      : folderFilter
+        ? { folderId: folderFilter }
+        : {};
+
+  const [targetsRaw, totalActive, totalAds, foldersRaw, unfiledCount, totalTargets] =
+    await Promise.all([
+      prisma.target.findMany({
+        where: targetWhere,
+        orderBy: { createdAt: "desc" },
+        include: {
+          snapshots: {
+            orderBy: { capturedAt: "desc" },
+            take: 30,
+            select: { id: true, activeCount: true, capturedAt: true },
+          },
+          _count: { select: { ads: true } },
         },
-        _count: { select: { ads: true } },
-      },
-    }),
-    prisma.ad.count({ where: { isActive: true } }),
-    prisma.ad.count(),
-  ]);
+      }),
+      prisma.ad.count({ where: { isActive: true } }),
+      prisma.ad.count(),
+      prisma.folder.findMany({
+        orderBy: { createdAt: "asc" },
+        include: { _count: { select: { targets: true } } },
+      }),
+      prisma.target.count({ where: { folderId: null } }),
+      prisma.target.count(),
+    ]);
+
+  const folders: FolderItem[] = foldersRaw.map((f) => ({
+    id: f.id,
+    name: f.name,
+    color: f.color,
+    _count: f._count,
+  }));
 
   return (
     <>
@@ -34,7 +64,7 @@ export default async function DashboardPage() {
               Monitor de anúncios
             </h1>
             <p className="text-sm text-muted-foreground">
-              Acompanhe anúncios de concorrentes com coleta automática diária.
+              Acompanhe anúncios de concorrentes com coleta automática a cada 6 h.
             </p>
           </div>
           <AddTargetDialog />
@@ -43,32 +73,59 @@ export default async function DashboardPage() {
         <div className="mb-8 grid gap-3 sm:grid-cols-3">
           <StatTile
             label="Alvos monitorados"
-            value={targets.length}
-            hint={<span className="flex items-center gap-1"><Radar className="h-3 w-3" /> ativos no radar</span>}
+            value={totalTargets}
+            hint={
+              <span className="flex items-center gap-1">
+                <Radar className="h-3 w-3" /> ativos no radar
+              </span>
+            }
           />
           <StatTile
             label="Anúncios ativos"
             value={totalActive}
             tone="success"
-            hint={<span className="flex items-center gap-1"><Activity className="h-3 w-3" /> em todos os alvos</span>}
+            hint={
+              <span className="flex items-center gap-1">
+                <Activity className="h-3 w-3" /> em todos os alvos
+              </span>
+            }
           />
           <StatTile
             label="Base histórica"
             value={totalAds}
-            hint={<span className="flex items-center gap-1"><Eye className="h-3 w-3" /> anúncios já vistos</span>}
+            hint={
+              <span className="flex items-center gap-1">
+                <Eye className="h-3 w-3" /> anúncios já vistos
+              </span>
+            }
           />
         </div>
 
-        {targets.length === 0 ? (
-          <EmptyState />
+        <FolderBar
+          folders={folders}
+          selected={folderFilter}
+          totalTargets={totalTargets}
+          unfiledCount={unfiledCount}
+        />
+
+        {targetsRaw.length === 0 ? (
+          <EmptyState hasFilter={Boolean(folderFilter)} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {targets.map((t) => (
+            {targetsRaw.map((t) => (
               <TargetCard
                 key={t.id}
+                folders={folders}
                 target={{
-                  ...t,
+                  id: t.id,
+                  name: t.name,
+                  inputType: t.inputType,
+                  pageName: t.pageName,
+                  folderId: t.folderId,
+                  isPaused: t.isPaused,
+                  lastError: t.lastError,
                   lastRunAt: t.lastRunAt ? t.lastRunAt.toISOString() : null,
+                  _count: t._count,
                   snapshots: t.snapshots.map((s) => ({
                     ...s,
                     capturedAt: s.capturedAt.toISOString(),
@@ -83,7 +140,7 @@ export default async function DashboardPage() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ hasFilter }: { hasFilter: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/30 px-6 py-20 text-center">
       <div className="relative mb-2">
@@ -92,10 +149,13 @@ function EmptyState() {
           <Radar className="h-5 w-5" />
         </div>
       </div>
-      <h2 className="text-lg font-semibold">Nenhum alvo ainda</h2>
+      <h2 className="text-lg font-semibold">
+        {hasFilter ? "Nenhum alvo nessa pasta" : "Nenhum alvo ainda"}
+      </h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        Adicione uma URL da Biblioteca de Anúncios do Meta ou de uma página do
-        Facebook pra começar a monitorar.
+        {hasFilter
+          ? "Mova um alvo existente pra esta pasta ou adicione um novo."
+          : "Adicione uma URL da Biblioteca de Anúncios do Meta ou de uma página do Facebook pra começar a monitorar."}
       </p>
       <div className="mt-2">
         <AddTargetDialog />

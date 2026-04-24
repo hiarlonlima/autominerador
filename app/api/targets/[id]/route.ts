@@ -38,11 +38,13 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
+  // folderId: null  → move pra "Sem pasta"; undefined → não mexe
   const target = await prisma.target.update({
     where: { id },
     data: {
-      name: body.name,
-      isPaused: body.isPaused,
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.isPaused !== undefined ? { isPaused: body.isPaused } : {}),
+      ...(body.folderId !== undefined ? { folderId: body.folderId } : {}),
     },
   });
   return NextResponse.json(target);
