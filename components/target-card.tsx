@@ -126,8 +126,16 @@ export function TargetCard({
 
   return (
     <>
-      <Card className="group relative overflow-hidden transition-colors hover:border-border/80">
-        <div className="flex items-start justify-between gap-3 p-5 pb-3">
+      <Card className="group relative overflow-hidden transition-colors hover:border-border/80 hover:bg-card/80">
+        {/* link absoluto que cobre o card inteiro pra abrir detalhes;
+            divs de texto têm pointer-events-none pra deixar o click passar,
+            enquanto botões têm pointer-events-auto pra interceptar. */}
+        <Link
+          href={`/target/${target.id}`}
+          aria-label={`Ver detalhes de ${target.name}`}
+          className="absolute inset-0"
+        />
+        <div className="pointer-events-none relative flex items-start justify-between gap-3 p-5 pb-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-sm font-semibold">{target.name}</h3>
@@ -143,7 +151,7 @@ export function TargetCard({
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="pointer-events-auto flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
@@ -215,7 +223,7 @@ export function TargetCard({
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-4 px-5">
+        <div className="pointer-events-none relative flex items-end justify-between gap-4 px-5">
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-semibold tracking-tight">
@@ -243,7 +251,7 @@ export function TargetCard({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between border-t border-border/60 px-5 py-3 text-xs text-muted-foreground">
+        <div className="pointer-events-none relative mt-4 flex items-center justify-between border-t border-border/60 px-5 py-3 text-xs text-muted-foreground">
           <span>
             {hasError ? (
               <span className="text-destructive">⚠ {target.lastError}</span>
@@ -253,12 +261,9 @@ export function TargetCard({
               <span className="text-warning">Ainda não coletado</span>
             )}
           </span>
-          <Link
-            href={`/target/${target.id}`}
-            className="flex items-center gap-1 font-medium text-foreground/80 hover:text-primary"
-          >
+          <span className="flex items-center gap-1 font-medium text-foreground/60 group-hover:text-primary">
             Ver detalhes <ArrowRight className="h-3 w-3" />
-          </Link>
+          </span>
         </div>
       </Card>
 

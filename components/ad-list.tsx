@@ -41,15 +41,16 @@ export function AdList({ ads }: { ads: AdListItem[] }) {
   );
 }
 
+// Só retorna URL quando temos mídia em alta resolução (vídeo HD/SD ou imagem
+// original). O `snapshotUrl` é só um thumbnail — se cairmos nele, o botão some
+// e o usuário sabe que precisa rodar um scrape pra pegar o HD.
 export function adDownloadUrl(ad: {
   archiveId: string;
   videoHdUrl?: string | null;
   videoSdUrl?: string | null;
   originalImageUrl?: string | null;
-  snapshotUrl?: string | null;
 }): string | null {
-  const src =
-    ad.videoHdUrl ?? ad.videoSdUrl ?? ad.originalImageUrl ?? ad.snapshotUrl ?? null;
+  const src = ad.videoHdUrl ?? ad.videoSdUrl ?? ad.originalImageUrl ?? null;
   if (!src) return null;
   return `/api/download?url=${encodeURIComponent(src)}&filename=ad_${ad.archiveId}`;
 }
@@ -58,7 +59,6 @@ function AdCard({ ad }: { ad: AdListItem }) {
   const adUrl = `https://www.facebook.com/ads/library/?id=${ad.archiveId}`;
   const startedAt = ad.startDate ?? ad.firstSeenAt;
   const downloadHref = adDownloadUrl(ad);
-  const hasHd = Boolean(ad.videoHdUrl ?? ad.originalImageUrl);
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card/50 transition-colors hover:border-border/90">
@@ -121,15 +121,22 @@ function AdCard({ ad }: { ad: AdListItem }) {
             </span>
           )}
         </div>
-        {downloadHref && (
+        {downloadHref ? (
           <a
             href={downloadHref}
             className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:border-primary/40 hover:text-primary"
-            title={hasHd ? "Baixar em HD" : "Baixar preview"}
+            title="Baixar em HD"
           >
             <Download className="h-3 w-3" />
-            {hasHd ? "Baixar HD" : "Baixar preview"}
+            Baixar HD
           </a>
+        ) : (
+          <div
+            className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 px-2 py-1.5 text-[10px] text-muted-foreground"
+            title="Roda um scrape no alvo pra pegar a URL em HD"
+          >
+            HD não disponível — rode um scrape
+          </div>
         )}
       </div>
     </div>
