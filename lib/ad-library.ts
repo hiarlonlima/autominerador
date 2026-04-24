@@ -65,13 +65,18 @@ export const createTargetSchema = z.object({
 // O actor do Apify retorna 0 resultados quando a URL tem country=ALL.
 // Força um país específico (default BR) e limpa parâmetros que só atrapalham.
 export function normalizeLibraryUrl(raw: string, fallbackCountry = "BR"): string {
+  // o fallback também pode vir como "ALL" (targets antigos) — aí reseta pra BR
+  const safeFallback =
+    !fallbackCountry || fallbackCountry.toUpperCase() === "ALL"
+      ? "BR"
+      : fallbackCountry;
   try {
     const url = new URL(raw);
     if (!LIBRARY_HOSTS.includes(url.hostname)) return raw;
 
     const country = url.searchParams.get("country");
     if (!country || country.toUpperCase() === "ALL") {
-      url.searchParams.set("country", fallbackCountry);
+      url.searchParams.set("country", safeFallback);
     }
 
     // flag interna que desliga a vinculação ao país; sem isso o actor
