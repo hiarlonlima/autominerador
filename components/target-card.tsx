@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowRight,
-  Check,
   Clock,
   FolderInput,
   Inbox,
@@ -65,15 +64,9 @@ export type TargetCardData = {
 export function TargetCard({
   target,
   folders,
-  selected = false,
-  onToggleSelect,
-  selectionDisabled = false,
 }: {
   target: TargetCardData;
   folders: FolderItem[];
-  selected?: boolean;
-  onToggleSelect?: () => void;
-  selectionDisabled?: boolean;
 }) {
   const router = useRouter();
   const [scraping, setScraping] = useState(false);
@@ -133,37 +126,9 @@ export function TargetCard({
 
   return (
     <>
-      <Card
-        className={cn(
-          "group relative overflow-hidden transition-colors hover:border-border/80",
-          selected && "border-primary ring-1 ring-primary/30",
-        )}
-      >
-        {onToggleSelect && (
-          <button
-            type="button"
-            onClick={onToggleSelect}
-            disabled={selectionDisabled && !selected}
-            className={cn(
-              "absolute left-3 top-3 z-10 flex h-5 w-5 items-center justify-center rounded border transition-all",
-              selected
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border/70 bg-card/80 opacity-0 group-hover:opacity-100 hover:border-primary/60",
-              selectionDisabled && !selected && "cursor-not-allowed opacity-30",
-            )}
-            title={
-              selectionDisabled && !selected
-                ? "Limite de 3 alvos pra comparar"
-                : selected
-                  ? "Remover da seleção"
-                  : "Selecionar pra comparar"
-            }
-          >
-            {selected && <Check className="h-3 w-3" />}
-          </button>
-        )}
+      <Card className="group relative overflow-hidden transition-colors hover:border-border/80">
         <div className="flex items-start justify-between gap-3 p-5 pb-3">
-          <div className={cn("min-w-0 flex-1", onToggleSelect && "pl-7")}>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-sm font-semibold">{target.name}</h3>
               {target.inputType === "library_url" ? (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Radar } from "lucide-react";
+import { Radar, Sparkles } from "lucide-react";
 
 export function SiteHeader() {
   return (
@@ -25,6 +25,13 @@ export function SiteHeader() {
             href="/"
           >
             Dashboard
+          </Link>
+          <Link
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors hover:bg-accent hover:text-foreground"
+            href="/compare"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Comparação
           </Link>
         </nav>
       </div>
