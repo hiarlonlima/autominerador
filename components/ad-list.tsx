@@ -1,5 +1,4 @@
-import Image from "next/image";
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDays } from "@/lib/utils";
 
@@ -17,6 +16,9 @@ export type AdListItem = {
   isActive: boolean;
   collationId: string | null;
   collationCount: number;
+  videoHdUrl?: string | null;
+  videoSdUrl?: string | null;
+  originalImageUrl?: string | null;
   firstSeenAt: string | Date;
   lastSeenAt: string | Date;
 };
@@ -39,17 +41,34 @@ export function AdList({ ads }: { ads: AdListItem[] }) {
   );
 }
 
+export function adDownloadUrl(ad: {
+  archiveId: string;
+  videoHdUrl?: string | null;
+  videoSdUrl?: string | null;
+  originalImageUrl?: string | null;
+  snapshotUrl?: string | null;
+}): string | null {
+  const src =
+    ad.videoHdUrl ?? ad.videoSdUrl ?? ad.originalImageUrl ?? ad.snapshotUrl ?? null;
+  if (!src) return null;
+  return `/api/download?url=${encodeURIComponent(src)}&filename=ad_${ad.archiveId}`;
+}
+
 function AdCard({ ad }: { ad: AdListItem }) {
   const adUrl = `https://www.facebook.com/ads/library/?id=${ad.archiveId}`;
   const startedAt = ad.startDate ?? ad.firstSeenAt;
+  const downloadHref = adDownloadUrl(ad);
+  const hasHd = Boolean(ad.videoHdUrl ?? ad.originalImageUrl);
+
   return (
-    <a
-      href={adUrl}
-      target="_blank"
-      rel="noreferrer"
-      className="group block overflow-hidden rounded-xl border border-border bg-card/50 transition-colors hover:border-border/90"
-    >
-      <div className="relative aspect-[4/5] bg-muted">
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card/50 transition-colors hover:border-border/90">
+      <a
+        href={adUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="relative block aspect-[4/5] bg-muted"
+        title="Ver na biblioteca"
+      >
         {ad.snapshotUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -84,14 +103,15 @@ function AdCard({ ad }: { ad: AdListItem }) {
         <div className="absolute right-2 top-2 rounded-md bg-background/80 p-1 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100">
           <ExternalLink className="h-3 w-3" />
         </div>
-      </div>
-      <div className="space-y-1.5 p-3">
+      </a>
+
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
         {ad.bodyText && (
           <p className="line-clamp-2 text-xs text-foreground/90">
             {ad.bodyText}
           </p>
         )}
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="mt-auto flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span title={startedAt ? new Date(startedAt).toLocaleString("pt-BR") : ""}>
             {ad.isActive ? "Ativo há" : "Ativo por"} {formatRelativeDays(startedAt)}
           </span>
@@ -101,7 +121,17 @@ function AdCard({ ad }: { ad: AdListItem }) {
             </span>
           )}
         </div>
+        {downloadHref && (
+          <a
+            href={downloadHref}
+            className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:border-primary/40 hover:text-primary"
+            title={hasHd ? "Baixar em HD" : "Baixar preview"}
+          >
+            <Download className="h-3 w-3" />
+            {hasHd ? "Baixar HD" : "Baixar preview"}
+          </a>
+        )}
       </div>
-    </a>
+    </div>
   );
 }

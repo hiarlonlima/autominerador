@@ -1,7 +1,20 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Download, ExternalLink, Sparkles, Trophy } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+type WinnerCreative = {
+  archiveId: string;
+  mediaType: string | null;
+  cta: string | null;
+  copy: string;
+  duplicates: number;
+  snapshotUrl: string | null;
+  libraryUrl: string;
+  downloadUrl: string | null;
+  hasHd: boolean;
+};
 
 export type CompareResult = {
   analysis: string;
@@ -11,6 +24,11 @@ export type CompareResult = {
     avgLast7: number;
     oldestActiveLabel: string;
   }>;
+  winner?: {
+    name: string;
+    reason: string;
+    topCreatives: WinnerCreative[];
+  };
 };
 
 export function CompareResultBlock({ result }: { result: CompareResult }) {
@@ -49,10 +67,102 @@ export function CompareResultBlock({ result }: { result: CompareResult }) {
         </div>
       </div>
 
+      {result.winner && (
+        <div className="border-b border-border/60 bg-card/30 p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-primary">
+              <Trophy className="h-3.5 w-3.5" />
+            </div>
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Vencedor
+              </div>
+              <div className="text-base font-semibold">{result.winner.name}</div>
+            </div>
+          </div>
+          <p className="mb-4 text-sm text-foreground/90">{result.winner.reason}</p>
+
+          {result.winner.topCreatives.length > 0 && (
+            <>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Top criativos pra modelar
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {result.winner.topCreatives.map((c) => (
+                  <WinnerCreativeCard key={c.archiveId} creative={c} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="p-6">
         <MarkdownBlock text={result.analysis} />
       </div>
     </Card>
+  );
+}
+
+function WinnerCreativeCard({ creative }: { creative: WinnerCreative }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card/60">
+      <div className="relative aspect-[4/5] bg-muted">
+        {creative.snapshotUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={creative.snapshotUrl}
+            alt={creative.copy.slice(0, 60)}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+            Sem preview
+          </div>
+        )}
+        <div className="absolute left-2 top-2 flex items-center gap-1">
+          <Badge variant="success" className="h-5 px-1.5 text-[10px]">
+            ×{creative.duplicates}
+          </Badge>
+          {creative.mediaType && (
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+              {creative.mediaType}
+            </Badge>
+          )}
+        </div>
+      </div>
+      <div className="space-y-2 p-3">
+        <p className="line-clamp-3 text-xs text-foreground/90">{creative.copy}</p>
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono">
+            ID: {creative.archiveId}
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          {creative.downloadUrl && (
+            <a
+              href={creative.downloadUrl}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md bg-primary px-2 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              title={creative.hasHd ? "Baixar HD" : "Baixar preview"}
+            >
+              <Download className="h-3 w-3" />
+              {creative.hasHd ? "Baixar HD" : "Baixar"}
+            </a>
+          )}
+          <a
+            href={creative.libraryUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-1 rounded-md border border-border bg-background/60 px-2 py-1.5 text-[11px] font-medium transition-colors hover:border-primary/40 hover:text-primary"
+            title="Ver na biblioteca"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Biblioteca
+          </a>
+        </div>
+      </div>
+    </div>
   );
 }
 

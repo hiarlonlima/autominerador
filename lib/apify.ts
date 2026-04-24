@@ -18,7 +18,11 @@ export interface ScrapedAd {
     cta_text?: string;
     link_url?: string;
     images?: Array<{ original_image_url?: string; resized_image_url?: string }>;
-    videos?: Array<{ video_preview_image_url?: string }>;
+    videos?: Array<{
+      video_preview_image_url?: string;
+      video_hd_url?: string;
+      video_sd_url?: string;
+    }>;
     display_format?: string;
   };
   start_date?: number; // epoch seconds
@@ -125,5 +129,8 @@ export function normalizeAd(raw: ScrapedAd) {
     isActive: Boolean(raw.is_active ?? raw.isActive ?? true),
     collationId: raw.collation_id ?? null,
     collationCount: Math.max(1, Number(raw.collation_count ?? 1)),
+    videoHdUrl: raw.snapshot?.videos?.[0]?.video_hd_url ?? null,
+    videoSdUrl: raw.snapshot?.videos?.[0]?.video_sd_url ?? null,
+    originalImageUrl: raw.snapshot?.images?.[0]?.original_image_url ?? null,
   };
 }

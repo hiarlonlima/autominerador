@@ -75,6 +75,10 @@ model Ad {
   startDate      DateTime?
   endDate        DateTime?
   isActive       Boolean   @default(true)
+  // URLs para baixar o criativo em resolução alta
+  videoHdUrl       String?  @db.Text
+  videoSdUrl       String?  @db.Text
+  originalImageUrl String?  @db.Text
   // collation_* é o agrupamento nativo do Meta: "N anúncios usam esse criativo"
   collationId    String?
   collationCount Int       @default(1)

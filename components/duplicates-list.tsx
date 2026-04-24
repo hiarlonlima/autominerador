@@ -1,9 +1,9 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDays } from "@/lib/utils";
-import type { AdListItem } from "./ad-list";
+import { adDownloadUrl, type AdListItem } from "./ad-list";
 
 type Group = {
   ads: AdListItem[];
@@ -91,18 +91,30 @@ function GroupCard({ group }: { group: Group }) {
             {sample.bodyText || sample.linkUrl || "Sem texto"}
           </p>
         </div>
-        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>
             Escalado há {formatRelativeDays(oldest ? new Date(oldest) : null)}
           </span>
-          <a
-            href={`https://www.facebook.com/ads/library/?id=${sample.archiveId}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 hover:text-primary"
-          >
-            Ver na biblioteca <ExternalLink className="h-3 w-3" />
-          </a>
+          <div className="flex items-center gap-3">
+            {adDownloadUrl(sample) && (
+              <a
+                href={adDownloadUrl(sample)!}
+                className="inline-flex items-center gap-1 hover:text-primary"
+                title={sample.videoHdUrl || sample.originalImageUrl ? "Baixar HD" : "Baixar preview"}
+              >
+                <Download className="h-3 w-3" />
+                Baixar
+              </a>
+            )}
+            <a
+              href={`https://www.facebook.com/ads/library/?id=${sample.archiveId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 hover:text-primary"
+            >
+              Biblioteca <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
         </div>
       </div>
     </div>
