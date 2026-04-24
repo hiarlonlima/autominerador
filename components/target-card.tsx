@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowRight,
+  Check,
   Clock,
   FolderInput,
   Inbox,
@@ -64,9 +65,15 @@ export type TargetCardData = {
 export function TargetCard({
   target,
   folders,
+  selected = false,
+  onToggleSelect,
+  selectionDisabled = false,
 }: {
   target: TargetCardData;
   folders: FolderItem[];
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  selectionDisabled?: boolean;
 }) {
   const router = useRouter();
   const [scraping, setScraping] = useState(false);
@@ -126,9 +133,37 @@ export function TargetCard({
 
   return (
     <>
-      <Card className="group relative overflow-hidden transition-colors hover:border-border/80">
+      <Card
+        className={cn(
+          "group relative overflow-hidden transition-colors hover:border-border/80",
+          selected && "border-primary ring-1 ring-primary/30",
+        )}
+      >
+        {onToggleSelect && (
+          <button
+            type="button"
+            onClick={onToggleSelect}
+            disabled={selectionDisabled && !selected}
+            className={cn(
+              "absolute left-3 top-3 z-10 flex h-5 w-5 items-center justify-center rounded border transition-all",
+              selected
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border/70 bg-card/80 opacity-0 group-hover:opacity-100 hover:border-primary/60",
+              selectionDisabled && !selected && "cursor-not-allowed opacity-30",
+            )}
+            title={
+              selectionDisabled && !selected
+                ? "Limite de 3 alvos pra comparar"
+                : selected
+                  ? "Remover da seleção"
+                  : "Selecionar pra comparar"
+            }
+          >
+            {selected && <Check className="h-3 w-3" />}
+          </button>
+        )}
         <div className="flex items-start justify-between gap-3 p-5 pb-3">
-          <div className="min-w-0 flex-1">
+          <div className={cn("min-w-0 flex-1", onToggleSelect && "pl-7")}>
             <div className="flex items-center gap-2">
               <h3 className="truncate text-sm font-semibold">{target.name}</h3>
               {target.inputType === "library_url" ? (
@@ -171,7 +206,7 @@ export function TargetCard({
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
                   <Pencil className="h-3.5 w-3.5" />
-                  Renomear
+                  Editar
                 </DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
@@ -262,7 +297,7 @@ export function TargetCard({
         </div>
       </Card>
 
-      <RenameDialog
+      <EditTargetDialog
         targetId={target.id}
         currentName={target.name}
         open={renameOpen}
@@ -272,7 +307,7 @@ export function TargetCard({
   );
 }
 
-function RenameDialog({
+function EditTargetDialog({
   targetId,
   currentName,
   open,
@@ -285,55 +320,106 @@ function RenameDialog({
 }) {
   const router = useRouter();
   const [name, setName] = useState(currentName);
+  const [newUrl, setNewUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch(`/api/targets/${targetId}`, {
+      const payload: Record<string, string> = { name };
+      if (newUrl.trim()) payload.input = newUrl.trim();
+      const res = await fetch(`/api/targets/${targetId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(payload),
       });
-      toast.success("Renomeado");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro");
+      if (data.scrape?.ok) {
+        toast.success(`Link atualizado — ${data.scrape.activeCount} ativo(s)`);
+      } else if (data.scrape?.error) {
+        toast.warning("Link atualizado, mas a coleta falhou", {
+          description: data.scrape.error,
+        });
+      } else {
+        toast.success("Alvo atualizado");
+      }
       onOpenChange(false);
+      setNewUrl("");
       router.refresh();
-    } catch {
-      toast.error("Erro");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (loading) return;
+        onOpenChange(v);
+      }}
+    >
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Renomear biblioteca</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="rename-target">Novo nome</Label>
-            <Input
-              id="rename-target"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              required
-              maxLength={80}
-            />
+        {loading && newUrl ? (
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div>
+              <h3 className="text-base font-semibold">
+                Recoletando com o novo link…
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pode levar 1–2 minutos. Não feche a janela.
+              </p>
+            </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Salvar
-            </Button>
-          </DialogFooter>
-        </form>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Editar alvo</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Apelido</Label>
+                <Input
+                  id="edit-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  maxLength={80}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-url">Novo link (opcional)</Label>
+                <Input
+                  id="edit-url"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="Cola uma nova URL pra substituir"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Se trocar o link, a coleta roda automaticamente.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

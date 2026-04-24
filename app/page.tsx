@@ -2,9 +2,10 @@ import { Activity, Eye, Radar } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { SiteHeader } from "@/components/site-header";
 import { AddTargetDialog } from "@/components/add-target-dialog";
-import { TargetCard } from "@/components/target-card";
+import { DashboardGrid } from "@/components/dashboard-grid";
 import { StatTile } from "@/components/stat-tile";
 import { FolderBar, type FolderItem } from "@/components/folder-bar";
+import type { TargetCardData } from "@/components/target-card";
 
 export const dynamic = "force-dynamic";
 
@@ -118,36 +119,31 @@ export default async function DashboardPage({ searchParams }: Props) {
         {targetsRaw.length === 0 ? (
           <EmptyState hasFilter={Boolean(folderFilter)} folders={folders} />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {targetsRaw.map((t) => {
+          <DashboardGrid
+            folders={folders}
+            targets={targetsRaw.map<TargetCardData>((t) => {
               const oldest = t.ads[0];
               const oldestAt = oldest
                 ? (oldest.startDate ?? oldest.firstSeenAt)
                 : null;
-              return (
-                <TargetCard
-                  key={t.id}
-                  folders={folders}
-                  target={{
-                    id: t.id,
-                    name: t.name,
-                    inputType: t.inputType,
-                    pageName: t.pageName,
-                    folderId: t.folderId,
-                    isPaused: t.isPaused,
-                    lastError: t.lastError,
-                    lastRunAt: t.lastRunAt ? t.lastRunAt.toISOString() : null,
-                    _count: t._count,
-                    snapshots: t.snapshots.map((s) => ({
-                      ...s,
-                      capturedAt: s.capturedAt.toISOString(),
-                    })),
-                    oldestActiveAt: oldestAt ? new Date(oldestAt).toISOString() : null,
-                  }}
-                />
-              );
+              return {
+                id: t.id,
+                name: t.name,
+                inputType: t.inputType,
+                pageName: t.pageName,
+                folderId: t.folderId,
+                isPaused: t.isPaused,
+                lastError: t.lastError,
+                lastRunAt: t.lastRunAt ? t.lastRunAt.toISOString() : null,
+                _count: t._count,
+                snapshots: t.snapshots.map((s) => ({
+                  ...s,
+                  capturedAt: s.capturedAt.toISOString(),
+                })),
+                oldestActiveAt: oldestAt ? new Date(oldestAt).toISOString() : null,
+              };
             })}
-          </div>
+          />
         )}
       </main>
     </>
