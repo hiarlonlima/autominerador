@@ -19,7 +19,13 @@ export async function scrapeTarget(target: Target) {
     // actor às vezes retorna um único item com { error: "..." } em vez de
     // falhar o run. Trata isso como erro real.
     if (items.length === 1 && "error" in (items[0] as object) && (items[0] as { error?: string }).error) {
-      throw new Error((items[0] as { error: string }).error);
+      const raw = (items[0] as { error: string; errorCode?: string });
+      const code = raw.errorCode ?? "";
+      const friendly =
+        code === "ADS_NOT_FOUND"
+          ? "Página sem anúncios públicos neste país. Confira a URL ou tente outro país."
+          : raw.error;
+      throw new Error(friendly);
     }
 
     const normalized = items
